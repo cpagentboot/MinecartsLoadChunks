@@ -1,0 +1,15 @@
+# Minecraft-related
+run/
+build/
+.gradle/
+gradle/
+
+# IDE-related
+.idea/
+
+# Logs and temporary files
+*.log
+
+# Other system-specific
+.DS_Store
+Thumbs.db

@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "id": "minecartsloadchunks",
+  "version": "${version}",
+  "name": "MinecartsLoadChunks",
+  "description": "",
+  "authors": [],
+  "contact": {},
+  "license": "All-Rights-Reserved",
+  "icon": "assets/minecartsloadchunks/icon.png",
+  "environment": "*",
+  "entrypoints": {
+    "client": [
+      "D7lan.minecartsloadchunks.client.MinecartsloadchunksClient"
+    ],
+    "main": [
+      "D7lan.minecartsloadchunks.Minecartsloadchunks"
+    ]
+  },
+  "mixins": [
+    "minecartsloadchunks.mixins.json",
+    {
+      "config": "minecartsloadchunks.client.mixins.json",
+      "environment": "client"
+    }
+  ],
+  "depends": {
+    "fabricloader": ">=${loader_version}",
+    "fabric": "*",
+    "minecraft": "${minecraft_version}"
+  }
+}
