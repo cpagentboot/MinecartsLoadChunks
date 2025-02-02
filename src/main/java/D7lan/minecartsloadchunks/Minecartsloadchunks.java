@@ -4,8 +4,8 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
-import net.minecraft.entity.vehicle.AbstractMinecartEntity;
 import net.minecraft.entity.EntityType;
+import net.minecraft.entity.vehicle.AbstractMinecartEntity;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.util.WorldSavePath;
@@ -36,6 +36,17 @@ public class Minecartsloadchunks implements ModInitializer {
     // Track which worlds have loaded their persistent data.
     private final Set<ServerWorld> persistentLoadedWorlds = new HashSet<>();
 
+    // Define the minecart types we want to process.
+    // (Ensure that these types exist in your targeted version of Minecraft.)
+    private static final EntityType<?>[] MINECART_TYPES = new EntityType<?>[] {
+            EntityType.MINECART,
+            EntityType.CHEST_MINECART,
+            EntityType.FURNACE_MINECART,
+            EntityType.HOPPER_MINECART,
+            EntityType.TNT_MINECART,
+            EntityType.COMMAND_BLOCK_MINECART
+    };
+
     @Override
     public void onInitialize() {
         ServerTickEvents.START_SERVER_TICK.register(this::onServerTick);
@@ -56,36 +67,36 @@ public class Minecartsloadchunks implements ModInitializer {
             forcedChunks.computeIfAbsent(world, w -> new HashMap<>());
             Map<ChunkPos, Long> worldForcedChunks = forcedChunks.get(world);
 
-            // Update minecart movement record.
-            for (AbstractMinecartEntity minecart : world.getEntitiesByType(
-                    EntityType.MINECART, minecart -> true)) {
-                Vec3d velocity = minecart.getVelocity();
-                if (velocity.lengthSquared() > 1e-6) {
-                   /* System.out.printf("Minecart moving at (%.2f, %.2f, %.2f) with velocity (%.2f, %.2f, %.2f)%n",
-                            minecart.getX(), minecart.getY(), minecart.getZ(),
-                            velocity.x, velocity.y, velocity.z);*/
-                    minecartMovementMap.put(minecart.getUuid(), currentTick);
+            // First loop: Update minecart movement record for each minecart type.
+            for (EntityType<?> type : MINECART_TYPES) {
+                // We cast safely to AbstractMinecartEntity.
+                for (AbstractMinecartEntity minecart : world.getEntitiesByType((EntityType<AbstractMinecartEntity>) type, e -> true)) {
+                    Vec3d velocity = minecart.getVelocity();
+                    if (velocity.lengthSquared() > 1e-6) {
+                        minecartMovementMap.put(minecart.getUuid(), currentTick);
+                    }
                 }
             }
 
-            // For each minecart that has moved in the last 30 seconds, force-load a 3x3 grid.
-            for (AbstractMinecartEntity minecart : world.getEntitiesByType(
-                    EntityType.MINECART, minecart -> true)) {
-                Long lastMoveTick = minecartMovementMap.get(minecart.getUuid());
-                if (lastMoveTick != null && (currentTick - lastMoveTick) <= THIRTY_SECONDS) {
-                    // Determine the minecart's current chunk.
-                    ChunkPos centerChunk = new ChunkPos(minecart.getBlockPos());
-                    // Force-load a 3x3 grid around the minecart's chunk.
-                    for (int dx = -1; dx <= 1; dx++) {
-                        for (int dz = -1; dz <= 1; dz++) {
-                            ChunkPos cp = new ChunkPos(centerChunk.x + dx, centerChunk.z + dz);
-                            if (!worldForcedChunks.containsKey(cp)) {
-                                System.out.printf("Minecart loaded chunk at (%d, %d) in world %s%n",
-                                        cp.x, cp.z, world.getRegistryKey().getValue());
-                                world.setChunkForced(cp.x, cp.z, true);
+            // Second loop: For each minecart that has moved recently, force-load a 3x3 grid.
+            for (EntityType<?> type : MINECART_TYPES) {
+                for (AbstractMinecartEntity minecart : world.getEntitiesByType((EntityType<AbstractMinecartEntity>) type, e -> true)) {
+                    Long lastMoveTick = minecartMovementMap.get(minecart.getUuid());
+                    if (lastMoveTick != null && (currentTick - lastMoveTick) <= THIRTY_SECONDS) {
+                        // Determine the minecart's current chunk.
+                        ChunkPos centerChunk = new ChunkPos(minecart.getBlockPos());
+                        // Force-load a 3x3 grid around the minecart's chunk.
+                        for (int dx = -1; dx <= 1; dx++) {
+                            for (int dz = -1; dz <= 1; dz++) {
+                                ChunkPos cp = new ChunkPos(centerChunk.x + dx, centerChunk.z + dz);
+                                if (!worldForcedChunks.containsKey(cp)) {
+                                    System.out.printf("Minecart (%s) loaded chunk at (%d, %d) in world %s%n",
+                                            type.getTranslationKey(), cp.x, cp.z, world.getRegistryKey().getValue());
+                                    world.setChunkForced(cp.x, cp.z, true);
+                                }
+                                long newExpiry = currentTick + ONE_MINUTE;
+                                worldForcedChunks.merge(cp, newExpiry, Math::max);
                             }
-                            long newExpiry = currentTick + ONE_MINUTE;
-                            worldForcedChunks.merge(cp, newExpiry, Math::max);
                         }
                     }
                 }
@@ -149,7 +160,6 @@ public class Minecartsloadchunks implements ModInitializer {
     // Saves persistent forced-chunk data for a given world.
     private void savePersistentChunksForWorld(ServerWorld world, long currentTick, MinecraftServer server) {
         Map<ChunkPos, Long> worldForcedChunks = forcedChunks.get(world);
-        int count = (worldForcedChunks == null) ? 0 : worldForcedChunks.size();
         if (worldForcedChunks == null || worldForcedChunks.isEmpty()) {
             // Optionally, delete the file if it exists.
             File persistentFile = getPersistentFileForWorld(world, server);
