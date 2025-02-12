@@ -4,6 +4,7 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
+import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.vehicle.AbstractMinecartEntity;
 import net.minecraft.server.MinecraftServer;
@@ -27,8 +28,8 @@ public class Minecartsloadchunks implements ModInitializer {
     private final Map<ServerWorld, Map<ChunkPos, Long>> forcedChunks = new HashMap<>();
 
     // Timing constants (in ticks; 20 ticks = 1 second).
-    private static final long THIRTY_SECONDS = 30 * 20; // 600 ticks
-    private static final long ONE_MINUTE = 60 * 20;       // 1200 ticks
+   // private static final long THIRTY_SECONDS = 30 * 20; // 600 ticks
+    //private static final long ONE_MINUTE = 60 * 20;       // 1200 ticks
 
     // For each world, store the last tick when the persistent data was saved.
     private final Map<ServerWorld, Long> lastSaveTickMap = new HashMap<>();
@@ -37,7 +38,7 @@ public class Minecartsloadchunks implements ModInitializer {
     private final Set<ServerWorld> persistentLoadedWorlds = new HashSet<>();
 
     // Define the minecart types we want to process.
-    // (Ensure that these types exist in your targeted version of Minecraft.)
+    /* (Ensure that these types exist in your targeted version of Minecraft.)
     private static final EntityType<?>[] MINECART_TYPES = new EntityType<?>[] {
             EntityType.MINECART,
             EntityType.CHEST_MINECART,
@@ -45,11 +46,22 @@ public class Minecartsloadchunks implements ModInitializer {
             EntityType.HOPPER_MINECART,
             EntityType.TNT_MINECART,
             EntityType.COMMAND_BLOCK_MINECART
-    };
+    };*/
+
+    EntityType<?>[] MinecartTypes;
+
+    ModConfig config;
+
 
     @Override
     public void onInitialize() {
-        ServerTickEvents.START_SERVER_TICK.register(this::onServerTick);
+        //Load configuration from file.
+        config = ModConfig.loadConfig();
+        MinecartTypes = config.getMinecartTypes();
+
+        if (config.loadChunks) {
+            ServerTickEvents.START_SERVER_TICK.register(this::onServerTick);
+        }
     }
 
     private void onServerTick(MinecraftServer server) {
@@ -68,7 +80,7 @@ public class Minecartsloadchunks implements ModInitializer {
             Map<ChunkPos, Long> worldForcedChunks = forcedChunks.get(world);
 
             // First loop: Update minecart movement record for each minecart type.
-            for (EntityType<?> type : MINECART_TYPES) {
+            for (EntityType<?> type : MinecartTypes) {
                 // We cast safely to AbstractMinecartEntity.
                 for (AbstractMinecartEntity minecart : world.getEntitiesByType((EntityType<AbstractMinecartEntity>) type, e -> true)) {
                     Vec3d velocity = minecart.getVelocity();
@@ -79,22 +91,25 @@ public class Minecartsloadchunks implements ModInitializer {
             }
 
             // Second loop: For each minecart that has moved recently, force-load a 3x3 grid.
-            for (EntityType<?> type : MINECART_TYPES) {
+            for (EntityType<?> type : MinecartTypes) {
                 for (AbstractMinecartEntity minecart : world.getEntitiesByType((EntityType<AbstractMinecartEntity>) type, e -> true)) {
                     Long lastMoveTick = minecartMovementMap.get(minecart.getUuid());
-                    if (lastMoveTick != null && (currentTick - lastMoveTick) <= THIRTY_SECONDS) {
+                    if (lastMoveTick != null && (currentTick - lastMoveTick) <= (long)config.movementDuration*20) { //20 ticks per second, config is in seconds, so * 20. Maybe later we should check the current world's tick rate, but for now we are going to assume it is 20tps.
                         // Determine the minecart's current chunk.
                         ChunkPos centerChunk = new ChunkPos(minecart.getBlockPos());
-                        // Force-load a 3x3 grid around the minecart's chunk.
+                        /* Force-load a 3x3 grid around the minecart's chunk.
+                       Note: Instead of loading a 3x3 grid around the minecart, determine its current direction of travel and then only load the chunk it is currently in and the chunk that it is about to enter.
+                       This would reduce the number of forceloaded chunks dramatically. maybe create config.SmartChunkLoading=true.
+                       We could also 'force unload' chunks as we leave them instead of leaving it on a timer, preventing the "trail" of unloaded chunks as the cart travels. But that's just optimization stuff.
+                         */
+
                         for (int dx = -1; dx <= 1; dx++) {
                             for (int dz = -1; dz <= 1; dz++) {
                                 ChunkPos cp = new ChunkPos(centerChunk.x + dx, centerChunk.z + dz);
                                 if (!worldForcedChunks.containsKey(cp)) {
-                                    System.out.printf("Minecart (%s) loaded chunk at (%d, %d) in world %s%n",
-                                            type.getTranslationKey(), cp.x, cp.z, world.getRegistryKey().getValue());
                                     world.setChunkForced(cp.x, cp.z, true);
                                 }
-                                long newExpiry = currentTick + ONE_MINUTE;
+                                long newExpiry = currentTick + (long)config.cartLoadDuration*20; //Same as above.
                                 worldForcedChunks.merge(cp, newExpiry, Math::max);
                             }
                         }
@@ -166,8 +181,11 @@ public class Minecartsloadchunks implements ModInitializer {
             if (persistentFile.exists()) {
                 persistentFile.delete();
             }
+
+            if (config.spamConsole){
             System.out.printf("Saved %d forceloaded chunks for world %s.%n",
                     0, world.getRegistryKey().getValue());
+            } //Way too much console spam
             return;
         }
         List<PersistentChunkData> list = new ArrayList<>();
@@ -189,8 +207,11 @@ public class Minecartsloadchunks implements ModInitializer {
         } catch (IOException e) {
             e.printStackTrace();
         }
-        System.out.printf("Saved %d forceloaded chunks for world %s.%n",
-                list.size(), world.getRegistryKey().getValue());
+
+        if (config.spamConsole) {
+            System.out.printf("Saved %d forceloaded chunks for world %s.%n",
+                    list.size(), world.getRegistryKey().getValue());
+        } //Way too much console spam
     }
 
     // Returns the persistent file for a given world.

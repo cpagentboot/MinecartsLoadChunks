@@ -3,10 +3,12 @@
   "id": "minecartsloadchunks",
   "version": "${version}",
   "name": "MinecartsLoadChunks",
-  "description": "",
-  "authors": [],
-  "contact": {},
-  "license": "All-Rights-Reserved",
+  "description": "Minecarts now load the terrain around them as they travel instead of getting stuck at unloaded chunk borders.",
+  "authors": ["D7lan"],
+  "contact": {
+    "homepage": "https://github.com/cpagentboot/MinecartsLoadChunks"
+  },
+  "license": "MIT",
   "icon": "assets/minecartsloadchunks/icon.png",
   "environment": "*",
   "entrypoints": {
