@@ -75,9 +75,7 @@ public class WorldChunksManager {
                 // we get the expiry tick (500), minus the saved tick (300)
                 // that is what remained for the chunk to be unloaded
                 // so we get the currentTick + what remained, and there we go
-                System.out.println("BEFORE: " + chunkData.expiryTick);
                 chunkData.expiryTick = currentTick + chunkData.expiryTick - chunkData.savedTick;
-                System.out.println("AFTER: " + chunkData.expiryTick);
 
                 boolean isChunkForced = chunkData.expiryTick > currentTick;
                 world.setChunkForced(chunkData.pos.x, chunkData.pos.z, isChunkForced);
@@ -105,30 +103,32 @@ public class WorldChunksManager {
     public static int savePersistentChunksForWorld(ServerWorld world) {
         long currentTick = world.getServer().getTicks();
 
-        WorldData worldData = WORLD_DATA.getOrDefault(world, new WorldData(world));
-        Collection<ChunkData> forcedChunks = worldData.getChunks();
-
-        for (ChunkData data : forcedChunks) {
-            data.savedTick = currentTick;
-        }
-
         Optional<File> optionalFile = getPersistentFileForWorld(world);
         if (optionalFile.isEmpty()) {
             System.out.println("[!] [MinecartsLoadChunks] Could not save world, since the file could not be created.");
             return 0;
         }
 
-        Gson gson = new GsonBuilder().setPrettyPrinting().create();
-        try (FileWriter writer = new FileWriter(optionalFile.get())) {
-            gson.toJson(forcedChunks, writer);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+        WorldData worldData = WORLD_DATA.getOrDefault(world, new WorldData(world));
+        synchronized (worldData.chunkData) {
+            Collection<ChunkData> forcedChunks = worldData.getChunks();
 
-        if (MinecartsLoadChunks.getConfig().spamConsole) {
-            System.out.printf("Saved %d forceloaded chunks for world %s.%n", forcedChunks.size(), world.getRegistryKey().getValue());
+            for (ChunkData data : forcedChunks) {
+                data.savedTick = currentTick;
+            }
+
+            Gson gson = new GsonBuilder().setPrettyPrinting().create();
+            try (FileWriter writer = new FileWriter(optionalFile.get())) {
+                gson.toJson(forcedChunks, writer);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+
+            if (MinecartsLoadChunks.getConfig().spamConsole) {
+                System.out.printf("Saved %d forceloaded chunks for world %s.%n", forcedChunks.size(), world.getRegistryKey().getValue());
+            }
+            return forcedChunks.size();
         }
-        return forcedChunks.size();
     }
 
     /**
