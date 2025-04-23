@@ -1,6 +1,6 @@
 package D7lan.minecartsloadchunks;
 
-import D7lan.minecartsloadchunks.manager.WorldChunksManager;
+import D7lan.minecartsloadchunks.world.WorldChunksManager;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.minecraft.entity.EntityType;
@@ -8,6 +8,7 @@ import net.minecraft.entity.vehicle.AbstractMinecartEntity;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.util.math.ChunkPos;
+import net.minecraft.util.math.Vec3d;
 
 import java.util.*;
 
@@ -36,18 +37,36 @@ public class MinecartsLoadChunks implements ModInitializer {
 
             for (EntityType<?> type : MINECART_TYPES) {
                 for (AbstractMinecartEntity minecart : world.getEntitiesByType((EntityType<AbstractMinecartEntity>) type, e -> true)) {
-                    boolean isMoving = minecart.getVelocity().lengthSquared() > 1e-6;
-                    if (isMoving) MINECART_LAST_MOVED.put(minecart.getUuid(), currentTick);
+                    if (!getConfig().alwaysLoad) {
+                        boolean isMoving = minecart.getVelocity().lengthSquared() > 1e-6;
+                        if (isMoving) MINECART_LAST_MOVED.put(minecart.getUuid(), currentTick);
 
-                    Long lastMoveTick = MINECART_LAST_MOVED.get(minecart.getUuid());
-                    boolean shouldLoad = lastMoveTick != null && (currentTick - lastMoveTick) <= (long) getConfig().movementDuration * 20;
-                    if (!shouldLoad) continue;
+                        Long lastMoveTick = MINECART_LAST_MOVED.get(minecart.getUuid());
+                        boolean shouldLoad = lastMoveTick != null && (currentTick - lastMoveTick) <= (long) getConfig().movementDuration * 20;
+                        if (!shouldLoad) continue;
+                    }
 
-                    ChunkPos centerChunk = new ChunkPos(minecart.getBlockPos());
-                    for (int dx = -1; dx <= 1; dx++) {
-                        for (int dz = -1; dz <= 1; dz++) {
-                            ChunkPos cp = new ChunkPos(centerChunk.x + dx, centerChunk.z + dz);
-                            WorldChunksManager.forceLoadChunk(world, cp);
+                    if (getConfig().smartLoad) {
+                        Vec3d pos = minecart.getPos();
+                        Vec3d vel = minecart.getVelocity();
+                        double x = pos.x + vel.x;
+                        double z = pos.z + vel.z;
+
+                        int chunkX = (int)(x / 16);
+                        int chunkZ = (int)(z / 16);
+                        if (x < 0) chunkX--;
+                        if (z < 0) chunkZ--;
+                        ChunkPos nextChunkPos = new ChunkPos(chunkX, chunkZ);
+
+                        WorldChunksManager.forceLoadChunk(world, minecart.getChunkPos());
+                        WorldChunksManager.forceLoadChunk(world, nextChunkPos);
+                    } else {
+                        ChunkPos centerChunk = new ChunkPos(minecart.getBlockPos());
+                        for (int dx = -1; dx <= 1; dx++) {
+                            for (int dz = -1; dz <= 1; dz++) {
+                                ChunkPos cp = new ChunkPos(centerChunk.x + dx, centerChunk.z + dz);
+                                WorldChunksManager.forceLoadChunk(world, cp);
+                            }
                         }
                     }
                 }

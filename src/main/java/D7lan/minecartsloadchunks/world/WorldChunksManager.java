@@ -1,8 +1,6 @@
-package D7lan.minecartsloadchunks.manager;
+package D7lan.minecartsloadchunks.world;
 
 import D7lan.minecartsloadchunks.MinecartsLoadChunks;
-import D7lan.minecartsloadchunks.world.ChunkData;
-import D7lan.minecartsloadchunks.world.WorldData;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import net.minecraft.server.MinecraftServer;
@@ -54,7 +52,7 @@ public class WorldChunksManager {
         Optional<File> optionalFile = getPersistentFileForWorld(world);
         if (optionalFile.isEmpty() || !optionalFile.get().exists()) {
             System.out.printf("Loaded %d forceloaded chunks for world %s.%n", loadedCount, world.getRegistryKey().getValue());
-            WORLD_DATA.put(world, new WorldData());
+            WORLD_DATA.put(world, new WorldData(world));
             return loadedCount;
         }
 
@@ -64,7 +62,7 @@ public class WorldChunksManager {
             ChunkData[] chunksToLoad = gson.fromJson(reader, ChunkData[].class);
             if (chunksToLoad == null) return loadedCount;
 
-            WorldData worldData = WORLD_DATA.getOrDefault(world, new WorldData());
+            WorldData worldData = WORLD_DATA.getOrDefault(world, new WorldData(world));
             for (ChunkData chunkData : chunksToLoad) {
                 // [!] When the player closes the world, the ticks are reset.
                 // In simple terms, this is needed because:
@@ -107,7 +105,7 @@ public class WorldChunksManager {
     public static int savePersistentChunksForWorld(ServerWorld world) {
         long currentTick = world.getServer().getTicks();
 
-        WorldData worldData = WORLD_DATA.getOrDefault(world, new WorldData());
+        WorldData worldData = WORLD_DATA.getOrDefault(world, new WorldData(world));
         Collection<ChunkData> forcedChunks = worldData.getChunks();
 
         for (ChunkData data : forcedChunks) {
@@ -159,12 +157,14 @@ public class WorldChunksManager {
         WorldData worldData = WORLD_DATA.get(world);
         long currentTick = world.getServer().getTicks();
 
-        Iterator<ChunkData> iterator = worldData.getChunks().iterator();
-        while (iterator.hasNext()) {
-            ChunkData data = iterator.next();
-            if (currentTick > data.expiryTick) {
-                world.setChunkForced(data.pos.x, data.pos.z, false);
-                iterator.remove();
+        synchronized (worldData.chunkData) {
+            Iterator<ChunkData> iterator = worldData.getChunks().iterator();
+            while (iterator.hasNext()) {
+                ChunkData data = iterator.next();
+                if (currentTick > data.expiryTick) {
+                    world.setChunkForced(data.pos.x, data.pos.z, false);
+                    iterator.remove();
+                }
             }
         }
     }
