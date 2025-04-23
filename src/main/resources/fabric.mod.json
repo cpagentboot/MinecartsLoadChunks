@@ -16,7 +16,7 @@
       "D7lan.minecartsloadchunks.client.MinecartsloadchunksClient"
     ],
     "main": [
-      "D7lan.minecartsloadchunks.Minecartsloadchunks"
+      "D7lan.minecartsloadchunks.MinecartsLoadChunks"
     ]
   },
   "mixins": [
