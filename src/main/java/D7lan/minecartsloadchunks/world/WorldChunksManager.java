@@ -110,25 +110,23 @@ public class WorldChunksManager {
         }
 
         WorldData worldData = WORLD_DATA.getOrDefault(world, new WorldData(world));
-        synchronized (worldData.chunkData) {
-            Collection<ChunkData> forcedChunks = worldData.getChunks();
+        Collection<ChunkData> forcedChunks = worldData.getChunks();
 
-            for (ChunkData data : forcedChunks) {
-                data.savedTick = currentTick;
-            }
-
-            Gson gson = new GsonBuilder().setPrettyPrinting().create();
-            try (FileWriter writer = new FileWriter(optionalFile.get())) {
-                gson.toJson(forcedChunks, writer);
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-
-            if (MinecartsLoadChunks.getConfig().spamConsole) {
-                System.out.printf("Saved %d forceloaded chunks for world %s.%n", forcedChunks.size(), world.getRegistryKey().getValue());
-            }
-            return forcedChunks.size();
+        for (ChunkData data : forcedChunks) {
+            data.savedTick = currentTick;
         }
+
+        Gson gson = new GsonBuilder().setPrettyPrinting().create();
+        try (FileWriter writer = new FileWriter(optionalFile.get())) {
+            gson.toJson(forcedChunks, writer);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        if (MinecartsLoadChunks.getConfig().spamConsole) {
+            System.out.printf("Saved %d forceloaded chunks for world %s.%n", forcedChunks.size(), world.getRegistryKey().getValue());
+        }
+        return forcedChunks.size();
     }
 
     /**
@@ -157,14 +155,12 @@ public class WorldChunksManager {
         WorldData worldData = WORLD_DATA.get(world);
         long currentTick = world.getServer().getTicks();
 
-        synchronized (worldData.chunkData) {
-            Iterator<ChunkData> iterator = worldData.getChunks().iterator();
-            while (iterator.hasNext()) {
-                ChunkData data = iterator.next();
-                if (currentTick > data.expiryTick) {
-                    world.setChunkForced(data.pos.x, data.pos.z, false);
-                    iterator.remove();
-                }
+        Iterator<ChunkData> iterator = worldData.getChunks().iterator();
+        while (iterator.hasNext()) {
+            ChunkData data = iterator.next();
+            if (currentTick > data.expiryTick) {
+                world.setChunkForced(data.pos.x, data.pos.z, false);
+                iterator.remove();
             }
         }
     }
