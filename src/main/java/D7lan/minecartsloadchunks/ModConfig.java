@@ -12,8 +12,11 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class ModConfig {
-    public boolean loadChunks; //Weather or not the mod in entirety is active. set to false in order to disable mod.
+    public boolean loadChunks; // Whether the mod in entirety is active. set to false in order to disable mod.
     public boolean spamConsole;
+    public boolean alwaysLoad; // If true, minecarts always load the chunks they're in, no matter the speed.
+    // ^^ Remember that chest_minecarts spawn naturally and will cause chunk loading. Consider disabling chest_minecarts or not activating "always loading" at all.
+    public boolean smartLoad; // If true, minecarts consider their movement to load only needed chunks.
 
     public int cartLoadDuration; //How long in seconds each chunk should remain loaded after a moving cart loads it.
     public int movementDuration; //How long after a cart stops moving should we continue to load it for?
@@ -35,6 +38,8 @@ public class ModConfig {
         // Set default values for the configuration options.
         this.loadChunks = true;
         this.spamConsole = false;
+        this.alwaysLoad = false;
+        this.smartLoad = false;          // experimental
         this.cartLoadDuration = 30;      // default: 30 seconds
         this.movementDuration = 10;      // default: 10 seconds
 
