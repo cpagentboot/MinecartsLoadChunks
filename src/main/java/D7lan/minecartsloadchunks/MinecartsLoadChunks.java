@@ -47,7 +47,6 @@ public class MinecartsLoadChunks implements ModInitializer {
                         }
                     }
 
-                    System.out.println(minecart.getPos());
                     if (!getConfig().alwaysLoad) {
                         boolean isMoving = minecart.getVelocity().lengthSquared() > 1e-6;
                         if (isMoving) MINECART_LAST_MOVED.put(minecart.getUuid(), currentTick);
