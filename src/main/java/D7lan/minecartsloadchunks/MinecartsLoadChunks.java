@@ -5,6 +5,7 @@ import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.vehicle.AbstractMinecartEntity;
+import net.minecraft.entity.vehicle.ChestMinecartEntity;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.util.math.ChunkPos;
@@ -37,6 +38,16 @@ public class MinecartsLoadChunks implements ModInitializer {
 
             for (EntityType<?> type : MINECART_TYPES) {
                 for (AbstractMinecartEntity minecart : world.getEntitiesByType((EntityType<AbstractMinecartEntity>) type, e -> true)) {
+                    if (minecart instanceof ChestMinecartEntity chest) {
+                        if (chest.getCommandTags().contains("minecartsloadchunks_ignore"))
+                            continue;
+
+                        if (chest.getLootTable() != null) {
+                            chest.addCommandTag("minecartsloadchunks_ignore");
+                        }
+                    }
+
+                    System.out.println(minecart.getPos());
                     if (!getConfig().alwaysLoad) {
                         boolean isMoving = minecart.getVelocity().lengthSquared() > 1e-6;
                         if (isMoving) MINECART_LAST_MOVED.put(minecart.getUuid(), currentTick);
