@@ -47,7 +47,7 @@ public class MinecartsLoadChunks implements ModInitializer {
                     }
 
                     if (getConfig().smartLoad) {
-                        Vec3d pos = minecart.getPos();
+                        Vec3d pos = new Vec3d(minecart.getX(), minecart.getY(), minecart.getZ());
                         Vec3d vel = minecart.getVelocity();
                         double x = pos.x + vel.x;
                         double z = pos.z + vel.z;
